@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Form fields to JSON using pure JS</title>
+    <style>
+        .debug {
+            font-family: monospace;
+            border: 1px solid black;
+            padding: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>Build list, send fields to JSON using pure JS</h1>
+<div class="builder">
+    <ol class="household"></ol>
+    <form>
+        <div>
+            <label>Age
+                <input type="text" name="age">
+            </label>
+        </div>
+        <div>
+            <label>Relationship
+                <select name="rel">
+                    <option value="">---</option>
+                    <option value="self">Self</option>
+                    <option value="spouse">Spouse</option>
+                    <option value="child">Child</option>
+                    <option value="parent">Parent</option>
+                    <option value="grandparent">Grandparent</option>
+                    <option value="other">Other</option>
+                </select>
+            </label>
+        </div>
+        <div>
+            <label>Smoker?
+                <input type="checkbox" name="smoker">
+            </label>
+        </div>
+        <div>
+            <button class="add">add</button>
+        </div>
+        <div>
+            <button type="submit">submit</button>
+        </div>
+    </form>
+</div>
+<pre class="debug"></pre>
+<script type ="text/javascript">
+    (function() {
+        var debugOutput = document.querySelector('.debug');
+        var peopleInHome = document.querySelector('.household');
+        var allInHousehold = {householdArray: []};
+        var relationshipSelect = document.querySelector('select[name=rel]');
+        relationshipSelect.onblur = relationshipValidate;
+
+        var ageInput = document.querySelector('input[name=age]');
+        ageInput.onblur = ageValidate;
+
+        var smokerInput = document.querySelector('input[name=smoker]');
+        var addButton = document.querySelector('.add');
+        addButton.onclick = addAPerson;
+
+
+        window.onsubmit = submitFamily;
+
+
+
+        var validation = {
+            age: false,
+            rel: false
+        };
+
+
+
+        function ageValidate() {
+            removeError(ageInput, null);
+            ageChecker(ageInput.value);
+            if (validation.age) {
+                moreThanZero(ageInput.value);
+            }
+        }
+
+
+
+        function relationshipValidate() {
+            var noRelDiv = errorMessage('noRelError', 'You must choose a relationship');
+            if (!relationshipSelect.value) {
+                viewError(relationshipSelect, 'rel', noRelDiv);
+            } else {
+                removeError(relationshipSelect, 'rel');
+            }
+        }
+
+        
+        
+        function addAPerson(e) {
+            e.preventDefault();
+            ageValidate();
+            relationshipValidate();
+            var isValid = true;
+            for (var fieldToValidate in validation) {
+                if (!validation[fieldToValidate]) {
+                    isValid = false;
+                }
+            }
+            if (isValid) {
+                removeError(addButton, null);
+                var newFamilyMember = document.createElement('ul');
+
+                var age = document.createElement('li');
+                var relationship = document.createElement('li');
+                var smoker = document.createElement('li');
+                var remove = document.createElement('button');
+                var member = {
+                    age: ageInput.value,
+                    relationship: relationshipSelect.value,
+                    isSmoker: smokerInput.checked
+                };
+
+                allInHousehold.householdArray.push(member);
+                remove.innerHTML = 'Remove Member';
+                remove.type = 'button';
+                remove.class = 'remove';
+                remove.onclick = removeFamilyMember;
+                age.innerHTML = 'Age: ' + member.age;
+                relationship.innerHTML = 'Relationship: ' + member.relationship;
+                smoker.innerHTML = 'Smoker: ' + member.isSmoker;
+
+                newFamilyMember.insertBefore(age, null);
+                newFamilyMember.insertBefore(relationship, null);
+                newFamilyMember.insertBefore(smoker, null);
+                newFamilyMember.insertBefore(remove, null);
+                peopleInHome.insertBefore(newFamilyMember, null);
+
+                clearFields();
+            } else {
+                var errorShell = createErrorMessage('invalid', 'Something is wrong, check to make sure everything is filled in correctly.');
+                viewError(addButton, null, errorShell);
+            }
+            return false;
+            
+            function removeFamilyMember(e) {
+                var familyList = peopleInHome.querySelectorAll('li');
+                for (var i = 0; i < familyList.length; i++) {
+                    if (familyList[i] === e.srcElement.parentElement) {
+                        allInHousehold.householdArray.splice(i, 1);
+                    }
+                }
+                e.srcElement.parentElement.remove();
+            }
+        }
+
+        
+        
+        function clearFields() {
+            ageInput.value = '';
+            relationshipSelect.value = '';
+            smokerInput.checked = false;
+        }
+        
+        
+        
+        function submitFamily(e) {
+            e.preventDefault();
+            debugOutput.style.display = 'block';
+            debugOutput.innerHTML = JSON.stringify(allInHousehold);
+        }
+        
+        
+        
+        function ageChecker(value) {
+            var missingAge = errorMessage('missingAgeError', "Please enter an age that's a number.");
+            if (!value) {
+                viewError(ageInput, 'age', missingAge);
+            } else {
+                removeError(ageInput, 'age');
+            }
+        }
+        
+        function moreThanZero(value) {
+            var invalidAgeDiv = errorMessage('invalidAgeError', 'Age has to be greater than 0.');
+            if (isNaN(value) || value <= 0) {
+                viewError(ageInput, 'age', invalidAgeDiv);
+            } else {
+                removeError(ageInput, 'age');
+            }
+        }
+
+        
+        
+        function removeError(memberField, fieldValidate) {
+            if (fieldValidate) {
+                validation[fieldValidate] = true;
+            }
+            if (memberField.nextElementSibling) {
+                memberField.nextElementSibling.remove();
+            }
+        }
+
+
+        function errorMessage(id, message) {
+            var errorContainer = document.getElementById(id) || document.createElement('span');
+            if (!errorContainer.id) {
+                errorContainer.id = id;
+                errorContainer.innerHTML = message;
+            }
+            return errorContainer;
+        }
+
+        function viewError(memberField, fieldValidate, errorContainer) {
+            var parent = memberField.parentNode;
+            if (fieldValidate) {
+                validation[fieldValidate] = false;
+            }
+            parent.insertBefore(errorContainer, null);
+        }
+
+        
+        
+
+    })();
+</script>
+</body>
+</html>
